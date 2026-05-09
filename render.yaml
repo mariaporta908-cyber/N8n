@@ -1,15 +1,102 @@
+# render.yaml — Deploy automático no Render.com
+# Documentação: https://render.com/docs/blueprint-spec
+
 services:
+  # ─────────────────────────────────────────
+  # Serviço principal: N8N
+  # ─────────────────────────────────────────
   - type: web
     name: n8n
-    env: docker
-    plan: free
-    autoDeploy: true
-    envVars:
-      - key: N8N_BASIC_AUTH_ACTIVE
-        value: true
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter          # free | starter | standard | pro
+    region: oregon         # frankfurt | oregon | singapore | ohio
+    healthCheckPath: /healthz
+    autoDeploy: true       # deploy automático ao fazer push no GitHub
 
+    envVars:
+      # ── N8N Core ──
+      - key: N8N_HOST
+        value: 0.0.0.0
+      - key: N8N_PORT
+        value: 5678
       - key: N8N_PROTOCOL
         value: https
+      - key: WEBHOOK_URL
+        value: https://n8n.onrender.com/   # ← Atualize com sua URL real
 
+      # ── Autenticação ──
+      - key: N8N_BASIC_AUTH_ACTIVE
+        value: "true"
+      - key: N8N_BASIC_AUTH_USER
+        sync: false        # preencher no painel do Render
+      - key: N8N_BASIC_AUTH_PASSWORD
+        sync: false        # preencher no painel do Render
+
+      # ── Banco de Dados (PostgreSQL do Render) ──
+      - key: DB_TYPE
+        value: postgresdb
+      - key: DB_POSTGRESDB_HOST
+        fromDatabase:
+          name: n8n-db
+          property: host
+      - key: DB_POSTGRESDB_PORT
+        fromDatabase:
+          name: n8n-db
+          property: port
+      - key: DB_POSTGRESDB_DATABASE
+        fromDatabase:
+          name: n8n-db
+          property: database
+      - key: DB_POSTGRESDB_USER
+        fromDatabase:
+          name: n8n-db
+          property: user
+      - key: DB_POSTGRESDB_PASSWORD
+        fromDatabase:
+          name: n8n-db
+          property: password
+      - key: DB_POSTGRESDB_SSL_ENABLED
+        value: "true"
+      - key: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED
+        value: "false"
+
+      # ── Segurança ──
+      - key: N8N_ENCRYPTION_KEY
+        generateValue: true   # gerado automaticamente pelo Render
+      - key: N8N_USER_MANAGEMENT_JWT_SECRET
+        generateValue: true
+
+      # ── Timezone ──
       - key: GENERIC_TIMEZONE
-        value: Africa/Luanda
+        value: America/Sao_Paulo
+      - key: TZ
+        value: America/Sao_Paulo
+
+      # ── Execuções ──
+      - key: EXECUTIONS_MODE
+        value: main
+      - key: EXECUTIONS_DATA_SAVE_ON_ERROR
+        value: all
+      - key: EXECUTIONS_DATA_SAVE_ON_SUCCESS
+        value: none
+      - key: EXECUTIONS_DATA_PRUNE
+        value: "true"
+      - key: EXECUTIONS_DATA_MAX_AGE
+        value: "336"
+
+      # ── Logs ──
+      - key: N8N_LOG_LEVEL
+        value: info
+      - key: N8N_DIAGNOSTICS_ENABLED
+        value: "false"
+
+# ─────────────────────────────────────────
+# Banco de dados PostgreSQL gerenciado
+# ─────────────────────────────────────────
+databases:
+  - name: n8n-db
+    plan: starter          # free | starter | standard | pro
+    region: oregon
+    databaseName: n8n
+    user: n8n_user
